@@ -1,6 +1,6 @@
 <?php
 
-namespace khan-zia\SamlIdp\Listeners;
+namespace ziakhan\SamlIdp\Listeners;
 
 use Illuminate\Auth\Events\Logout;
 

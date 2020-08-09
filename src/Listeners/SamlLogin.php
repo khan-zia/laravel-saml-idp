@@ -1,8 +1,8 @@
 <?php
 
-namespace khan-zia\SamlIdp\Listeners;
+namespace ziakhan\SamlIdp\Listeners;
 
-use khan-zia\SamlIdp\Jobs\SamlSso;
+use ziakhan\SamlIdp\Jobs\SamlSso;
 use Illuminate\Auth\Events\Login;
 
 class SamlLogin
@@ -15,7 +15,7 @@ class SamlLogin
      */
     public function handle(Login $event)
     {
-        if (request()->filled('SAMLRequest') && ! request()->is('saml/logout')) {
+        if (request()->filled('SAMLRequest') && !request()->is('saml/logout')) {
             abort(response(SamlSso::dispatchNow()), 302);
         }
     }

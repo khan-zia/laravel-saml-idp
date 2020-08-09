@@ -1,5 +1,5 @@
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/khan-zia/laravel-saml-idp.svg?style=flat-square)](https://packagist.org/packages/khan-zia/laravel-saml-idp)
-[![Total Downloads](https://img.shields.io/packagist/dt/khan-zia/laravel-saml-idp.svg?style=flat-square)](https://packagist.org/packages/khan-zia/laravel-saml-idp)
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/ziakhan/laravel-saml-idp.svg?style=flat-square)](https://packagist.org/packages/ziakhan/laravel-saml-idp)
+[![Total Downloads](https://img.shields.io/packagist/dt/ziakhan/laravel-saml-idp.svg?style=flat-square)](https://packagist.org/packages/ziakhan/laravel-saml-idp)
 
 # Laravel SAML IDP
 
@@ -8,7 +8,7 @@ This library only supports Laravel 7.x onwards.
 ## Installation
 
 ```shell
-composer require khan-zia/laravel-saml-idp
+composer require ziakhan/laravel-saml-idp
 ```
 
 # Configuration
@@ -139,7 +139,7 @@ This is because Laravel migrations, by default, only supply email and name field
 
 To add additional Claim Types, you can subscribe to the Assertion event:
 
-`khan-zia\SamlIdp\Events\Assertion`
+`ziakhan\SamlIdp\Events\Assertion`
 
 Subscribing to the Event:
 
@@ -150,7 +150,7 @@ protected $listen = [
     'App\Events\Event' => [
         'App\Listeners\EventListener',
     ],
-    'khan-zia\SamlIdp\Events\Assertion' => [
+    'ziakhan\SamlIdp\Events\Assertion' => [
         'App\Listeners\SamlAssertionAttributes'
     ]
 ];
@@ -165,7 +165,7 @@ namespace App\Listeners;
 
 use LightSaml\ClaimTypes;
 use LightSaml\Model\Assertion\Attribute;
-use khan-zia\SamlIdp\Events\Assertion;
+use ziakhan\SamlIdp\Events\Assertion;
 
 class SamlAssertionAttributes
 {

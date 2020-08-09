@@ -1,6 +1,6 @@
 <?php
 
-namespace khan-zia\SamlIdp\Traits;
+namespace ziakhan\SamlIdp\Traits;
 
 use Illuminate\Support\Facades\Log;
 
@@ -14,7 +14,7 @@ trait SamlidpLog
      */
     protected function samlLog($arg = null)
     {
-        if (config('samlidp.debug') && ! is_null($arg) && ! is_object($arg)) {
+        if (config('samlidp.debug') && !is_null($arg) && !is_object($arg)) {
             Log::info($arg);
         }
     }

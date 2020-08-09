@@ -1,6 +1,6 @@
 <?php
 
-namespace khan-zia\SamlIdp\Contracts;
+namespace ziakhan\SamlIdp\Contracts;
 
 interface SamlContract
 {

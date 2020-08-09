@@ -1,6 +1,6 @@
 <?php
 
-namespace khan-zia\SamlIdp\Traits;
+namespace ziakhan\SamlIdp\Traits;
 
 use Illuminate\Support\Facades\Storage;
 use LightSaml\Binding\BindingFactory;
@@ -43,7 +43,7 @@ trait PerformsSingleSignOn
         $messageContext = new MessageContext();
         $messageContext->setMessage($this->response)->$as();
         $message = $messageContext->getMessage();
-        if (! empty(request()->filled('RelayState'))) {
+        if (!empty(request()->filled('RelayState'))) {
             $message->setRelayState(request('RelayState'));
         }
         $httpResponse = $binding->send($messageContext);

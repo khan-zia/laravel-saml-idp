@@ -1,10 +1,10 @@
 <?php
 
-namespace khan-zia\SamlIdp\Jobs;
+namespace ziakhan\SamlIdp\Jobs;
 
-use khan-zia\SamlIdp\Contracts\SamlContract;
-use khan-zia\SamlIdp\Events\Assertion as AssertionEvent;
-use khan-zia\SamlIdp\Traits\PerformsSingleSignOn;
+use ziakhan\SamlIdp\Contracts\SamlContract;
+use ziakhan\SamlIdp\Events\Assertion as AssertionEvent;
+use ziakhan\SamlIdp\Traits\PerformsSingleSignOn;
 use Illuminate\Foundation\Bus\Dispatchable;
 use LightSaml\Binding\BindingFactory;
 use LightSaml\Context\Profile\MessageContext;

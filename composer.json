@@ -19,13 +19,13 @@
   },
   "autoload": {
     "psr-4": {
-      "khan-zia\\SamlIdp\\": "src/"
+      "ziakhan\\SamlIdp\\": "src/"
     }
   },
   "extra": {
     "laravel": {
       "providers": [
-        "khan-zia\\SamlIdp\\LaravelSamlIdpServiceProvider"
+        "ziakhan\\SamlIdp\\LaravelSamlIdpServiceProvider"
       ]
     }
   }

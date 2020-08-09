@@ -1,6 +1,6 @@
 <?php
 
-namespace khan-zia\SamlIdp\Events;
+namespace ziakhan\SamlIdp\Events;
 
 use LightSaml\ClaimTypes;
 use Illuminate\Queue\SerializesModels;

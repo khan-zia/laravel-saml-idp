@@ -1,6 +1,6 @@
 <?php
 
-namespace khan-zia\SamlIdp\Http\Controllers;
+namespace ziakhan\SamlIdp\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Storage;

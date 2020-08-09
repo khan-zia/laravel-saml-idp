@@ -1,6 +1,6 @@
 <?php
 
-namespace khan-zia\SamlIdp\Console;
+namespace ziakhan\SamlIdp\Console;
 
 use Illuminate\Console\Command;
 

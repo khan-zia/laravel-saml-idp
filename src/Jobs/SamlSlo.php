@@ -1,8 +1,8 @@
 <?php
 
-namespace khan-zia\SamlIdp\Jobs;
+namespace ziakhan\SamlIdp\Jobs;
 
-use khan-zia\SamlIdp\Traits\PerformsSingleSignOn;
+use ziakhan\SamlIdp\Traits\PerformsSingleSignOn;
 use Illuminate\Foundation\Bus\Dispatchable;
 use LightSaml\Helper;
 use LightSaml\Model\Assertion\Issuer;
@@ -107,9 +107,9 @@ class SamlSlo
 
         $this->destination = $destination;
     }
- 
-   private function getQueryParams()
-   {
+
+    private function getQueryParams()
+    {
         $queryParams = (isset($this->sp['query_params']) ? $this->sp['query_params'] : null);
 
         if (is_null($queryParams)) {
@@ -119,5 +119,5 @@ class SamlSlo
         }
 
         return $queryParams;
-   }
+    }
 }

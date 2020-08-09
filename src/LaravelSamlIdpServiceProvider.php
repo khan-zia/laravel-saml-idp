@@ -1,6 +1,6 @@
 <?php
 
-namespace khan-zia\SamlIdp;
+namespace ziakhan\SamlIdp;
 
 /**
  * The service provider for laravel-samleidp
@@ -8,9 +8,9 @@ namespace khan-zia\SamlIdp;
  * @license MIT
  */
 
-use khan-zia\SamlIdp\Console\CreateCertificate;
-use khan-zia\SamlIdp\Console\CreateServiceProvider;
-use khan-zia\SamlIdp\Traits\EventMap;
+use ziakhan\SamlIdp\Console\CreateCertificate;
+use ziakhan\SamlIdp\Console\CreateServiceProvider;
+use ziakhan\SamlIdp\Traits\EventMap;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Blade;
@@ -127,7 +127,7 @@ class LaravelSamlIdpServiceProvider extends ServiceProvider
     {
         Route::name('saml.')
             ->prefix('saml')
-            ->namespace('khan-zia\SamlIdp\Http\Controllers')
+            ->namespace('ziakhan\SamlIdp\Http\Controllers')
             ->middleware('web')->group(function () {
                 $this->loadRoutesFrom(__DIR__ . '/../routes/web.php');
             });

@@ -1,6 +1,6 @@
 <?php
 
-namespace khan-zia\SamlIdp\Traits;
+namespace ziakhan\SamlIdp\Traits;
 
 trait EventMap
 {
@@ -10,15 +10,15 @@ trait EventMap
      * @var array
      */
     protected $events = [
-        'khan-zia\SamlIdp\Events\Assertion' => [],
+        'ziakhan\SamlIdp\Events\Assertion' => [],
         'Illuminate\Auth\Events\Logout' => [
-            'khan-zia\SamlIdp\Listeners\SamlLogout',
+            'ziakhan\SamlIdp\Listeners\SamlLogout',
         ],
         'Illuminate\Auth\Events\Authenticated' => [
-            'khan-zia\SamlIdp\Listeners\SamlAuthenticated',
+            'ziakhan\SamlIdp\Listeners\SamlAuthenticated',
         ],
         'Illuminate\Auth\Events\Login' => [
-            'khan-zia\SamlIdp\Listeners\SamlLogin',
+            'ziakhan\SamlIdp\Listeners\SamlLogin',
         ],
     ];
 }
