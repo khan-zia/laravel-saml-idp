@@ -4,113 +4,75 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | SAML idP configuration file
+    | The SAML IDP configuration file.
     |--------------------------------------------------------------------------
     |
-    | Use this file to configure the service providers you want to use.
+    | You can use this file to configure your IDP settings.
     |
      */
 
-    // Outputs data to your laravel.log file for debugging
+    /**
+     * Outputs data to your laravel.log file for debugging.
+     */
     'debug' => false,
 
-    // Define the email address field name in the users table
-    'email_field' => 'email',
-
-    // The URI to your login page
-    'login_uri' => 'login',
-
-    // Log out of the IdP after SLO
-    'logout_after_slo' => env('LOGOUT_AFTER_SLO', false),
-
-    // The URI to the saml metadata file, this describes your idP
-    'issuer_uri' => 'saml/metadata',
-
-    // Name of the certificate PEM file
-    'certname' => 'cert.pem',
-
-    // Name of the certificate key PEM file
-    'keyname' => 'key.pem',
-
-    // Encrypt requests and reponses
-    'encrypt_assertion' => true,
-
-    // Make sure messages are signed
-    'messages_signed' => true,
-
-    // list of all service providers
-    'sp' => [
-        // SAML settings for Amazon Web Services to login a user to the web aws console
-        'aws' => [
-            // ACS URL of AWS
-            'destination' => 'https://signin.aws.amazon.com/saml',
-
-            // SLO URL of AWS
-            'logout' => '',
-
-            /**
-             * The X.509 certificate of AWS.
-             * This certificate is not constant. You will have to generate your x509 certificate from the "My security credentials" menu
-             */
-            'certificate' => '',
-
-            // Whether to attach or not any query parameters to the destination URL of the SP. Use an array. If set to false, no params will be attached to the URL
-            'query_params' => false,
-
-            /**
-             * Whether to return a RelayState or not with the SAMLResponse
-             * AWS does not accept a RelayState at the moment.
-             */
-            'relay_state' => false,
-
-            // NameID format. AWS currently supports all SAML 2.0 formats
-            'nameid_format' => 'urn:oasis:names:tc:SAML:2.0:nameid-format:persistent',
-
-            // AWS requires subject confirmation
-            'subject_confirmation_method' => 'urn:oasis:names:tc:SAML:2.0:cm:bearer',
-
-            // Subject confirmation data
-            'subject_confirmation_data' => [
-                'NotOnOrAfter' => '',
-                'Recipient' => 'https://signin.aws.amazon.com/saml'
-            ],
-
-            // Required conditions. AWS currently requires AudienceRestriction
-            'conditions' => [
-                'AudienceRestriction' => [
-                    'Audience' => 'urn:amazon:webservices'
-                ]
-            ],
-
-            // Supported <Attribute> elements by AWS
-            'attributes' => [
-                // this value goes to the 'Name' attribute like <Attribute Name="">
-                'https://aws.amazon.com/SAML/Attributes/Role' => [
-                    // These values each goes to <AttributeValue> element inside this <Attribute>
-                    'arn:aws:iam::803034018031:role/meveto-saml-test-role,arn:aws:iam::803034018031:saml-provider/Meveto'
-                ],
-
-                'https://aws.amazon.com/SAML/Attributes/RoleSessionName' => [
-                    '' // This attribute accepts only one <AttributeValue> and usually this can be set to the email address of the authenticated user.
-                ],
-
-                /**
-                 * Option Attributes
-                 */
-
-                // This is the number of seconds that the user will be logged in to AWS for. By default it is set to 3 hours. This value may be overwritten by a user config from the DB.
-                'https://aws.amazon.com/SAML/Attributes/SessionDuration' => 10800,
-
-
-            ],
-        ]
-    ],
+    /**
+     * The single sign on URL of this IDP.
+     * Service providers will redirect users to this URL for authentication at this IDP.
+     */
+    'sso_uri' => 'login',
 
     /**
-     * If you need to redirect after SLO depending on SLO initiator.
-     * key is beginning of HTTP_REFERER value from SERVER, value is redirect path
+     * The single logout URL of this IDP.
+     * Service providers will redirect users to this URL for single logout.
      */
-    'sp_slo_redirects' => [
-        // 'example.com' => 'https://example.com',
-    ]
+    'slo_uri' => 'login',
+
+    /**
+     * Whether to log a user out of this IDP as well or not when a service provider requests a single logout.
+     * You can control this from your app's .env by using "LOGOUT_AFTER_SLO" key. It defaults to false.
+     */
+    'logout_after_slo' => env('LOGOUT_AFTER_SLO', false),
+
+    /**
+     * The URL of this IDP at which the metadata xml file exist.
+     * Service Providers can make use of this URL to learn configuration requirements for this IDP.
+     */
+    'issuer_uri' => 'saml/metadata',
+
+    /**
+     * The SHA512 RSA private key of this IDP. (Key must be SHA512)
+     * This key will be used to generate and verify signatures and also encrypt or decrypt responses.
+     * We recommend using 4096 bits long key instead of the otherwise typical 2048 bits.
+     */
+    'private_key' => env('SAML_PRIVATE_KEY', ''),
+
+    /**
+     * The X.509 certificate of this IDP. This must be generated from the private key specified above.
+     * Service Providers will be able to use this certificate to verify signatures of this IDP and to send signed requests to this IDP.
+     */
+    'x509_cert' => env('SAML_X509_CERT', ''),
+
+    /**
+     * Whether to encrypt SAMLRequest and SAMLResponse messages or not.
+     * defaults to false.
+     */
+    'use_encryption' => false,
+
+    /**
+     * Whether to sign SAML assertions or not.
+     * It is highly recommended to use signed assertions. Defaults to true
+     */
+    'sign_assertions' => true,
+
+    /**
+     * Whether to sign SAMLResponse as a whole or not.
+     * It is highly recommended to use signed responses. Defaults to true
+     */
+    'sign_response' => true,
+
+    /**
+     * The number of minutes that a SAMLResponse message will be valid for from the time of its creation.
+     */
+    'saml_response_validity_in_minutes' => 2
 ];

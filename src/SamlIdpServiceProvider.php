@@ -1,26 +1,14 @@
 <?php
 
-namespace ziakhan\SamlIdp;
+namespace ZiaKhan\SamlIdp;
 
-/**
- * The service provider for laravel-samleidp
- *
- * @license MIT
- */
-
-use ziakhan\SamlIdp\Console\CreateCertificate;
-use ziakhan\SamlIdp\Console\CreateServiceProvider;
-use ziakhan\SamlIdp\Traits\EventMap;
-use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
-class LaravelSamlIdpServiceProvider extends ServiceProvider
+class SamlIdpServiceProvider extends ServiceProvider
 {
-    use EventMap;
-
     /**
      * Bootstrap the application events.
      *
@@ -28,10 +16,14 @@ class LaravelSamlIdpServiceProvider extends ServiceProvider
      */
     public function boot(Router $router)
     {
-        $this->registerEvents();
         $this->registerRoutes();
         $this->registerResources();
         $this->registerBladeComponents();
+        $this->registerMigrations();
+
+        $this->app->singleton('SamlIdp', function ($app) {
+            return new SamlIdpService;
+        });
     }
 
     /**
@@ -44,7 +36,6 @@ class LaravelSamlIdpServiceProvider extends ServiceProvider
         $this->configure();
         $this->offerPublishing();
         $this->registerServices();
-        $this->registerCommands();
     }
 
     /**
@@ -104,30 +95,16 @@ class LaravelSamlIdpServiceProvider extends ServiceProvider
     }
 
     /**
-     * Loop through events and listeners provided by EventMap trait
-     *
-     * @return void
-     */
-    private function registerEvents()
-    {
-        $events = $this->app->make(Dispatcher::class);
-        foreach ($this->events as $event => $listeners) {
-            foreach ($listeners as $listener) {
-                $events->listen($event, $listener);
-            }
-        }
-    }
-
-    /**
      * Register routes for the service provider
      *
      * @return void
      */
     private function registerRoutes()
     {
+        $this->loadRoutesFrom(__DIR__ . '/../routes/api.php');
         Route::name('saml.')
             ->prefix('saml')
-            ->namespace('ziakhan\SamlIdp\Http\Controllers')
+            ->namespace('ZiaKhan\SamlIdp\Http\Controllers')
             ->middleware('web')->group(function () {
                 $this->loadRoutesFrom(__DIR__ . '/../routes/web.php');
             });
@@ -144,17 +121,14 @@ class LaravelSamlIdpServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register the artisan commands.
+     * Register migration files.
      *
      * @return void
      */
-    private function registerCommands()
+    protected function registerMigrations()
     {
         if ($this->app->runningInConsole()) {
-            $this->commands([
-                CreateCertificate::class,
-                CreateServiceProvider::class,
-            ]);
+            return $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
         }
     }
 }

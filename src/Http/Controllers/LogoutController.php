@@ -1,9 +1,9 @@
 <?php
 
-namespace ziakhan\SamlIdp\Http\Controllers;
+namespace ZiaKhan\SamlIdp\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use ziakhan\SamlIdp\Jobs\SamlSlo;
+use ZiaKhan\SamlIdp\Jobs\SamlSlo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 

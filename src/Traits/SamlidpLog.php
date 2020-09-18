@@ -1,6 +1,6 @@
 <?php
 
-namespace ziakhan\SamlIdp\Traits;
+namespace ZiaKhan\SamlIdp\Traits;
 
 use Illuminate\Support\Facades\Log;
 

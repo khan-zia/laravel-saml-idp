@@ -1,9 +1,8 @@
 <?php
 
-namespace ziakhan\SamlIdp\Http\Controllers;
+namespace ZiaKhan\SamlIdp\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Storage;
 
 class MetadataController extends Controller
 {
@@ -19,7 +18,7 @@ class MetadataController extends Controller
             \Barryvdh\Debugbar\Facade::disable();
         }
 
-        $cert = Storage::disk('samlidp')->get('cert.pem');
+        $cert = config('samlidp.x509_cert');
         $cert = preg_replace('/^\W+\w+\s+\w+\W+\s(.*)\s+\W+.*$/s', '$1', $cert);
         $cert = str_replace(PHP_EOL, "", $cert);
 
