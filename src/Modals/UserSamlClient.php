@@ -21,6 +21,13 @@ class UserSamlClient extends Model
     protected $guarded = [];
 
     /**
+     * Date attributes that should be parsed to a Carbon instance
+     *
+     * @var array
+     */
+    protected $dates = ['last_logged_in'];
+
+    /**
      * The attributes excluded from the model's JSON form.
      *
      * @var array

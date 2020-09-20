@@ -2,14 +2,17 @@
 
 namespace ZiaKhan\SamlIdp\Http\Controllers;
 
+use ZiaKhan\SamlIdp\Modals\ServiceProvider;
+use ZiaKhan\SamlIdp\Modals\UserSamlClient;
 use App\Http\Controllers\Controller;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
-use ZiaKhan\SamlIdp\Modals\ServiceProvider;
-use ZiaKhan\SamlIdp\Modals\UserSamlClient;
+use Illuminate\Support\Str;
+use ZiaKhan\SamlIdp\Modals\SsoPost;
 
 class SamlClientController extends Controller
 {
@@ -159,15 +162,73 @@ class SamlClientController extends Controller
             ]);
         }
 
-        $serviceProvider = new $samlClient->serviceProvider->namespace ?? \ZiaKhan\SamlIdp\Providers\Provider::class;
-        $serviceProvider->setNameIDValue("zmajrohi323@gmail.com");
-        $container = $serviceProvider->prepareResponse()->setSubjectMetadata(json_decode($samlClient->subject_metadata, true))->processXMLDocument()->getContainer();
+        try {
+            $serviceProvider = new $samlClient->serviceProvider->namespace ?? \ZiaKhan\SamlIdp\Providers\Provider::class;
+            $serviceProvider->setNameIDValue("zmajrohi323@gmail.com");
+            $container = $serviceProvider->prepareResponse()->setSubjectMetadata(json_decode($samlClient->subject_metadata, true))->processXMLDocument()->getContainer();
+
+            // Update instance of the last logged in time
+            $samlClient->last_logged_in = Carbon::now();
+            $samlClient->save();
+
+            // Store the HTTP-Post SAMLResponse because the frontend can not handle it directly
+            $responseId = Str::random(128);
+            SsoPost::create([
+                'id' => $responseId,
+                'destination' => $serviceProvider->getDestination(),
+                'post' => json_encode($container->getData())
+            ]);
+
+            return response()->json([
+                'status' => 'Saml_SSO_Successful',
+                'payload' => [
+                    'binding' => 'post',
+                    'token' => $responseId
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error("There was an error while trying to SSO to a saml client.", [
+                'message' => $e->getMessage()
+            ]);
+            return response()->json([
+                'status' => 'Saml_SSO_Failure',
+                'message' => 'A technical error occurred while trying to use single sign on for your requested service provider. Please try again later.'
+            ]);
+        }
+    }
+
+    /**
+     * Get a list of all SAML client applications.
+     *
+     * @param Request $request
+     * @return Response
+     */
+    public function getSamlClients(Request $request)
+    {
+        $clients = [];
+
+        // Get all saml clients that belong to the currently authenticated user.
+        $samlSsoList = UserSamlClient::where('user_id', Auth::user()->id)->get();
+
+        foreach ($samlSsoList as $samlSso) {
+            $clients[] = [
+                'app_id' => $samlSso->id,
+                'app_name' => Str::limit($samlSso->serviceProvider->name, 25),
+                'app_name_full' => $samlSso->serviceProvider->name,
+                // 'app_web_address' => Str::limit($samlSso->serviceProvider->web_address, 25),
+                // 'app_web_address_full' => $samlSso->serviceProvider->web_address,
+                'last_logged_in_date' => $samlSso->last_logged_in ? $samlSso->last_logged_in->format('D, d M, Y') : null,
+                'last_logged_in_time' => $samlSso->last_logged_in ? $samlSso->last_logged_in->format('H:i:s') : null,
+                // 'app_login_url' => $samlSso->serviceProvider->login,
+                'app_status' => ($samlSso->revoked) ? 0 : 1,
+                // 'app_shareable' => ($samlSso->serviceProvider->account_sharing) ? 1 : 0,
+            ];
+        }
 
         return response()->json([
-            'status' => 'Saml_SSO_Successful',
+            'status' => 'Saml_Clients_Retrieved',
             'payload' => [
-                'destination' => $serviceProvider->getDestination(),
-                'post_data' => $container->getData()
+                'clients' => $clients
             ]
         ]);
     }

@@ -4,7 +4,6 @@ namespace ZiaKhan\SamlIdp;
 
 use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Blade;
-use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 class SamlIdpServiceProvider extends ServiceProvider
@@ -102,12 +101,7 @@ class SamlIdpServiceProvider extends ServiceProvider
     private function registerRoutes()
     {
         $this->loadRoutesFrom(__DIR__ . '/../routes/api.php');
-        Route::name('saml.')
-            ->prefix('saml')
-            ->namespace('ZiaKhan\SamlIdp\Http\Controllers')
-            ->middleware('web')->group(function () {
-                $this->loadRoutesFrom(__DIR__ . '/../routes/web.php');
-            });
+        $this->loadRoutesFrom(__DIR__ . '/../routes/web.php');
     }
 
     /**
