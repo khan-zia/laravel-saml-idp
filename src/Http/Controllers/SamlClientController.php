@@ -125,6 +125,125 @@ class SamlClientController extends Controller
     }
 
     /**
+     * Get a list of all SAML client applications.
+     *
+     * @param Request $request
+     * @return Response
+     */
+    public function getSamlClients(Request $request)
+    {
+        return response()->json([
+            'status' => 'Saml_Clients_Retrieved',
+            'payload' => [
+                'clients' => $this->parseSamlClients()
+            ]
+        ]);
+    }
+
+    /**
+     * Delete a saml client specified by ID
+     * 
+     * @param Request $request
+     * @return Response
+     */
+    public function delete(Request $request)
+    {
+        $samlClient = $this->checkSamlClient($request->client_id);
+        if (!($samlClient instanceof UserSamlClient)) {
+            return $samlClient;
+        }
+
+        // Now check if there are any active sharing for this client app. If so, warn the user before deleting the account.
+        // if ($this->isUserClientShared($samlClient->id)) {
+        //     // The user client is currently shared with other user/users.
+        //     return response()->json(UserClientResponseType::ClientAppDeletionFailure, 'This account is currently being shared with other Meveto users. To delete this account, first you need to stop all shared instances for it.');
+        // }
+
+        try {
+            // Delete saml client
+            $samlClient->delete();
+
+            return response()->json([
+                'status' => 'Saml_Client_Deletion_Successful',
+                'payload' => [
+                    'clients' => $this->parseSamlClients()
+                ]
+            ]);
+        } catch (Exception $e) {
+            Log::error("A user SAML client with ID `{$samlClient->id}` could not be DELETED.", [
+                'message' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'status' => 'Saml_Client_Deletion_Failure',
+                'message' => 'This SSO account could not be deleted at the moment.'
+            ]);
+        }
+    }
+
+    /**
+     * Disable SSO login for a saml client
+     *
+     * @param Request $request
+     * @return Response
+     */
+    public function disableClient(Request $request)
+    {
+        $samlClient = $this->checkSamlClient($request->client_id);
+        if (!($samlClient instanceof UserSamlClient)) {
+            return $samlClient;
+        }
+
+        try {
+            $samlClient->revoked = true;
+            // Make sure the update is saved
+            $samlClient->save();
+
+            return response()->json(['status' => 'Saml_Client_Disable_Successful']);
+        } catch (Exception $e) {
+            Log::error("A user SAML client with ID `{$samlClient->id}` could not be DISABLED.", [
+                'message' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'status' => 'Saml_Client_Disable_Failure',
+                'message' => 'This SSO account could not be disabled at the moment.'
+            ]);
+        }
+    }
+
+    /**
+     * This method restores a user's client by the ID specified from revoked to normal
+     *
+     * @param Request $request
+     * @return Response
+     */
+    public function enableClient(Request $request)
+    {
+        $samlClient = $this->checkSamlClient($request->client_id);
+        if (!($samlClient instanceof UserSamlClient)) {
+            return $samlClient;
+        }
+
+        try {
+            $samlClient->revoked = false;
+            // Make sure the update is saved
+            $samlClient->save();
+
+            return response()->json(['status' => 'Saml_Client_Enable_Successful']);
+        } catch (Exception $e) {
+            Log::error("A user SAML client with ID `{$samlClient->id}` could not be ENABLED.", [
+                'message' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'status' => 'Saml_Client_Enable_Failure',
+                'message' => 'This SSO account could not be enabled at the moment.'
+            ]);
+        }
+    }
+
+    /**
      * Perform a Single Sing On.
      * Authenticate a user to a request SAML service provider.
      * 
@@ -198,12 +317,11 @@ class SamlClientController extends Controller
     }
 
     /**
-     * Get a list of all SAML client applications.
-     *
-     * @param Request $request
-     * @return Response
+     * Parse saml clients for a response
+     * 
+     * @return array
      */
-    public function getSamlClients(Request $request)
+    private function parseSamlClients(): array
     {
         $clients = [];
 
@@ -225,11 +343,29 @@ class SamlClientController extends Controller
             ];
         }
 
-        return response()->json([
-            'status' => 'Saml_Clients_Retrieved',
-            'payload' => [
-                'clients' => $clients
-            ]
-        ]);
+        return $clients;
+    }
+
+    /**
+     * Check that a saml client specified by ID exist and is owned by the currently
+     * authenticated user
+     * 
+     * @param string $id ID of the saml client
+     * @return UserSamlClient|Response UserSamlClient or Error response
+     */
+    private function checkSamlClient(string $id)
+    {
+        // Get the user client by ID
+        $samlClient = UserSamlClient::find($id);
+
+        // Make sure saml client was found and the currently authenticated user owns it.
+        if (!$samlClient || ($samlClient->user_id !== Auth::user()->id)) {
+            return response()->json([
+                'status' => 'Invalid_Saml_Client',
+                'message' => 'Invalid or no saml SSO application has been specified.'
+            ]);
+        }
+
+        return $samlClient;
     }
 }

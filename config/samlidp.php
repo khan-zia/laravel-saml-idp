@@ -17,28 +17,34 @@ return [
     'debug' => false,
 
     /**
+     * The entity ID for this IDP.
+     * This ID uniquely identifies this IDP with service providers.
+     */
+    'entity_id' => 'urn:Meveto:Single-Sign-On',
+
+    /**
+     * The URL of this IDP at which the metadata xml file exist.
+     * Service Providers can make use of this URL to learn configuration requirements for this IDP.
+     */
+    'issuer_uri' => 'https://prod.meveto.com/saml/metadata',
+
+    /**
      * The single sign on URL of this IDP.
      * Service providers will redirect users to this URL for authentication at this IDP.
      */
-    'sso_uri' => 'login',
+    'sso_uri' => 'https://dashboard.meveto.com/saml/sso',
 
     /**
      * The single logout URL of this IDP.
      * Service providers will redirect users to this URL for single logout.
      */
-    'slo_uri' => 'login',
+    'slo_uri' => 'https://dashboard.meveto.com/saml/slo',
 
     /**
      * Whether to log a user out of this IDP as well or not when a service provider requests a single logout.
      * You can control this from your app's .env by using "LOGOUT_AFTER_SLO" key. It defaults to false.
      */
     'logout_after_slo' => env('LOGOUT_AFTER_SLO', false),
-
-    /**
-     * The URL of this IDP at which the metadata xml file exist.
-     * Service Providers can make use of this URL to learn configuration requirements for this IDP.
-     */
-    'issuer_uri' => 'saml/metadata',
 
     /**
      * The SHA512 RSA private key of this IDP. (Key must be SHA512)
