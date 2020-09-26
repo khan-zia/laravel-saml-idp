@@ -67,7 +67,7 @@ abstract class ServiceProvider
      * 
      * @var string
      */
-    protected string $nameIdFormat = Constants::NAMEID_PERSISTENT;
+    protected string $nameIdFormat = Constants::NAMEID_UNSPECIFIED;
 
     /**
      * The NameID value.
@@ -243,7 +243,7 @@ abstract class ServiceProvider
     /**
      * Set the NameID Format for the SAMLResponse.
      * If you do not specify a nameID Format, then it will default to
-     * * "urn:oasis:names:tc:SAML:2.0:nameid-format:persistent"
+     * * "urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified"
      * 
      * TODO: Add exception handling if nameIDFormat is invalid.
      * 
@@ -336,6 +336,7 @@ abstract class ServiceProvider
     public function setSubjectMetaData(array $subjectMetaData): self
     {
         $this->subjectMetaData = $subjectMetaData;
+        return $this;
     }
 
     /**
