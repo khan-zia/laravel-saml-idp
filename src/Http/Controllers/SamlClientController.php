@@ -187,7 +187,7 @@ class SamlClientController extends Controller
      * @param Request $request
      * @return Response
      */
-    public function disableClient(Request $request)
+    public function disable(Request $request)
     {
         $samlClient = $this->checkSamlClient($request->client_id);
         if (!($samlClient instanceof UserSamlClient)) {
@@ -199,14 +199,14 @@ class SamlClientController extends Controller
             // Make sure the update is saved
             $samlClient->save();
 
-            return response()->json(['status' => 'Saml_Client_Disable_Successful']);
+            return response()->json(['status' => 'Saml_Client_Update_Successful']);
         } catch (Exception $e) {
             Log::error("A user SAML client with ID `{$samlClient->id}` could not be DISABLED.", [
                 'message' => $e->getMessage()
             ]);
 
             return response()->json([
-                'status' => 'Saml_Client_Disable_Failure',
+                'status' => 'Saml_Client_Update_Failure',
                 'message' => 'This SSO account could not be disabled at the moment.'
             ]);
         }
@@ -218,7 +218,7 @@ class SamlClientController extends Controller
      * @param Request $request
      * @return Response
      */
-    public function enableClient(Request $request)
+    public function enable(Request $request)
     {
         $samlClient = $this->checkSamlClient($request->client_id);
         if (!($samlClient instanceof UserSamlClient)) {
@@ -230,14 +230,14 @@ class SamlClientController extends Controller
             // Make sure the update is saved
             $samlClient->save();
 
-            return response()->json(['status' => 'Saml_Client_Enable_Successful']);
+            return response()->json(['status' => 'Saml_Client_Update_Successful']);
         } catch (Exception $e) {
             Log::error("A user SAML client with ID `{$samlClient->id}` could not be ENABLED.", [
                 'message' => $e->getMessage()
             ]);
 
             return response()->json([
-                'status' => 'Saml_Client_Enable_Failure',
+                'status' => 'Saml_Client_Update_Failure',
                 'message' => 'This SSO account could not be enabled at the moment.'
             ]);
         }
@@ -283,7 +283,7 @@ class SamlClientController extends Controller
 
         try {
             $serviceProvider = new $samlClient->serviceProvider->namespace ?? \ZiaKhan\SamlIdp\Providers\Provider::class;
-            $serviceProvider->setNameIDValue("zmajrohi323@gmail.com");
+            $serviceProvider->setNameIDValue(Auth::user()->id);
             $container = $serviceProvider->prepareResponse()->setSubjectMetadata(json_decode($samlClient->subject_metadata, true))->processXMLDocument()->getContainer();
 
             // Update instance of the last logged in time
