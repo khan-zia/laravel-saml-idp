@@ -2,8 +2,12 @@
 
 namespace ZiaKhan\SamlIdp\Http\Controllers;
 
-use ZiaKhan\SamlIdp\Modals\ServiceProvider;
-use ZiaKhan\SamlIdp\Modals\UserSamlClient;
+use ZiaKhan\SamlIdp\Models\ServiceProvider;
+use ZiaKhan\SamlIdp\Models\UserSamlClient;
+use ZiaKhan\SamlIdp\Models\SsoPost;
+use ZiaKhan\SamlIdp\Providers\Provider;
+use ZiaKhan\SamlIdp\SamlIdpConstants;
+use ZiaKhan\SamlIdp\Container;
 use App\Http\Controllers\Controller;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -12,10 +16,21 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-use ZiaKhan\SamlIdp\Modals\SsoPost;
+use SAML2\AuthnRequest;
+use SAML2\Compat\ContainerSingleton;
+use SAML2\HTTPRedirect;
 
 class SamlClientController extends Controller
 {
+    /**
+     * Decide how to prepare a SAMLResponse message.
+     * In case of IDP-initiated flow, the driver would be a UserSamlClient
+     * In case of SP-initiated flow, the driver would be a general AuthnRequest
+     * 
+     * @var UserSamlClient|AuthnRequest|null
+     */
+    protected $responseDriver = null;
+
     /**
      * Store a new SAML client for an authenticated user.
      * 
@@ -48,39 +63,11 @@ class SamlClientController extends Controller
         // Identify the specified service provider and perform additional input validation if needed.
         $sp = ServiceProvider::find($request->get('service_provider'));
 
-        // TODO based on the ID of the SP, grab an array for validation from a config or a json file.
-
-        // Assuming AWS, the following additional validation is needed.
+        // Validate required user input based on the specified service provider
         $validator = Validator::make(
             $request->all(),
-            [
-                'provider' => 'required|string|min:3', // The name of the IDP provider set at AWS
-                'account' => 'required|numeric|min:11', // The AWS Account number
-                'role_session_name' => 'required|string|min:3', // Name of the login session for AWS
-                'role_session_time' => 'nullable|numeric|min:900|max:43200', // The time the login session is valid for in seconds.
-                'roles' => 'required|array|min:1', // An array for defining AWS roles.
-                'roles.*' => 'required|string|distinct|min:3', // Each role
-            ],
-            [
-                'provider.required' => 'Specify name of the SAML Identity Provider that you set at Amazon Web Services management console.',
-                'provider.string' => 'Name of the SAML Identity Provider is invalid.',
-                'provider.min' => 'Name of the SAML Identity Provider must be at least :min characters long.',
-                'account.required' => 'Specify your Amazon Web Services account number.',
-                'account.numeric' => 'Amazon Web Services account is invalid.',
-                'account.min' => 'Amazon Web Services account must be at least :min characters long.',
-                'role_session_name.required' => 'Specify a session name for the role that you want to login to.',
-                'role_session_name.string' => 'The specified role session name is invalid.',
-                'role_session_name.min' => 'The role session name must be at least :min characters long.',
-                'role_session_time.min' => 'The role session time must be between 900 and 43200 seconds.',
-                'role_session_time.max' => 'The role session time must be between 900 and 43200 seconds.',
-                'roles.required' => 'Specify Amazon Web Services roles that you would like to assume.',
-                'roles.array' => 'The specified roles are invalid.',
-                'roles.min' => 'Specify at least 1 Amazon Web Services role.',
-                'roles.*.required' => 'Specified Amazon Web Services role can not be empty.',
-                'roles.*.string' => 'An invalid Amazon Web Services role has been specified.',
-                'roles.*.distinct' => 'Each Amazon Web Services role must be specified only once.',
-                'roles.*.min' => 'Make your Amazon Web Services roles at least :min characters long.',
-            ]
+            SamlIdpConstants::VALIDATION[$sp->name]['RULES'],
+            SamlIdpConstants::VALIDATION[$sp->name]['MESSAGES']
         );
 
         if ($validator->fails()) {
@@ -90,25 +77,21 @@ class SamlClientController extends Controller
             ]);
         }
 
-        // Prepare user related metadata for the specific service provider.
-
-        // * Assuming only AWS
-        $metadata = [
-            "https://aws.amazon.com/SAML/Attributes/Role" => [],
-            "https://aws.amazon.com/SAML/Attributes/RoleSessionName" => [$request->get('role_session_name')],
-            "https://aws.amazon.com/SAML/Attributes/SessionDuration" => [$request->get('role_session_time') ?? 3600]
-        ];
-        foreach ($request->get('roles') as $role) {
-            $metadata['https://aws.amazon.com/SAML/Attributes/Role'][] = "arn:aws:iam::{$request->get('account')}:role/{$role},arn:aws:iam::{$request->get('account')}:saml-provider/{$request->get('provider')}";
-        }
+        // Prepare storage data (array) for the specific service provider.
+        $store = $this->processUserSamlClientStorage($sp, $request);
 
         // Store a record for the new SAML client
         try {
-            UserSamlClient::create([
-                'user_id' => Auth::user()->id,
-                'service_provider_id' => $request->get('service_provider'),
-                'subject_metadata' => json_encode($metadata),
-            ]);
+            /**
+             * Because 'service_provider_id' and 'user_id' are required for all.
+             */
+            UserSamlClient::create(array_merge(
+                [
+                    'user_id' => Auth::user()->id,
+                    'service_provider_id' => $sp->id
+                ],
+                $store
+            ));
 
             return response()->json([
                 'status' => 'Saml_Client_Addition_Successful'
@@ -252,43 +235,50 @@ class SamlClientController extends Controller
      */
     public function sso(Request $request)
     {
-        // Check for the requested saml client (Service Provider Instance)
-        $validator = Validator::make(
-            $request->all(),
-            [
-                'saml_client' => 'required|numeric',
-            ],
-            [
-                'saml_client.required' => 'Specify a service provider account you wish to authenticate to.',
-                'saml_client.numeric' => 'The specified service provider account is invalid.',
-            ]
-        );
+        if ($request->has('saml_client')) {
+            // Next ensure that the saml client exists and is owned by the currently authenticated user
+            $samlClient = UserSamlClient::find($request->get('saml_client'));
 
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => 'Input_Data_Validation_Failed',
-                'errors' => $validator->errors()->all()
-            ]);
-        }
+            if (!$samlClient or $samlClient->user_id !== Auth::user()->id) {
+                return response()->json([
+                    'status' => 'Invalid_Saml_Client',
+                    'message' => 'The specified SAML service provider account is invalid.'
+                ]);
+            }
 
-        // Next ensure that the saml client exists and is owned by the currently authenticated user
-        $samlClient = UserSamlClient::find($request->get('saml_client'));
+            // We also need to check if the saml client has been revoked by the user or not
+            if ($samlClient->revoked) {
+                return response()->json([
+                    'status' => 'Saml_Client_Revoked',
+                    'message' => 'You have disabled Single Sign-On for this application.'
+                ]);
+            }
 
-        if (!$samlClient or $samlClient->user_id !== Auth::user()->id) {
-            return response()->json([
-                'status' => 'Invalid_Saml_Client',
-                'message' => 'The specified SAML service provider account is invalid.'
-            ]);
+            $this->responseDriver = $samlClient;
         }
 
         try {
-            $serviceProvider = new $samlClient->serviceProvider->namespace ?? \ZiaKhan\SamlIdp\Providers\Provider::class;
-            $serviceProvider->setNameIDValue(Auth::user()->id);
-            $container = $serviceProvider->prepareResponse()->setSubjectMetadata(json_decode($samlClient->subject_metadata, true))->processXMLDocument()->getContainer();
+            // If response driver is still NULL, try to receive a SAMLRequest message if present.
+            if (!$this->responseDriver) {
+                ContainerSingleton::setContainer(new Container);
+                $binding = new HTTPRedirect;
+                $this->responseDriver = $binding->receive();
+            }
+
+            // Instantiate service provider
+            $serviceProvider = new Provider($this->responseDriver);
+
+            // Prepare the response
+            $serviceProvider->processSamlClient()->setSubjectMetadata()->prepareResponse();
+
+            // Get the container
+            $container = $serviceProvider->processXMLDocument()->getContainer();
 
             // Update instance of the last logged in time
-            $samlClient->last_logged_in = Carbon::now();
-            $samlClient->save();
+            if ($this->responseDriver instanceof UserSamlClient) {
+                $samlClient->last_logged_in = Carbon::now();
+                $samlClient->save();
+            }
 
             // Store the HTTP-Post SAMLResponse because the frontend can not handle it directly
             $responseId = Str::random(128);
@@ -307,11 +297,12 @@ class SamlClientController extends Controller
             ]);
         } catch (\Exception $e) {
             Log::error("There was an error while trying to SSO to a saml client.", [
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
+                'trace' => $e->getTrace()
             ]);
             return response()->json([
                 'status' => 'Saml_SSO_Failure',
-                'message' => 'A technical error occurred while trying to use single sign on for your requested service provider. Please try again later.'
+                'message' => "Opps. there was a problem while trying to process your single sign on request. Please try again later."
             ]);
         }
     }
@@ -367,5 +358,77 @@ class SamlClientController extends Controller
         }
 
         return $samlClient;
+    }
+
+    /**
+     * Based on the service provider, process data in the request to store a UserSamlClient instance.
+     * 
+     * @param ServiceProvider $serviceProvider
+     * @param Request $request
+     * @return array|null The array that should go directly into UserSamlClient::create()
+     */
+    private function processUserSamlClientStorage(ServiceProvider $serviceProvider, Request $request): ?array
+    {
+        switch ($serviceProvider->name) {
+            case SamlIdpConstants::AWS:
+                $metadata = [
+                    "https://aws.amazon.com/SAML/Attributes/Role" => [],
+                    "https://aws.amazon.com/SAML/Attributes/RoleSessionName" => [$request->get('role_session_name')],
+                    "https://aws.amazon.com/SAML/Attributes/SessionDuration" => [$request->get('role_session_time') ?? 3600]
+                ];
+                foreach ($request->get('roles') as $role) {
+                    $metadata['https://aws.amazon.com/SAML/Attributes/Role'][] = "arn:aws:iam::{$request->get('account')}:role/{$role},arn:aws:iam::{$request->get('account')}:saml-provider/{$request->get('provider')}";
+                }
+                return [
+                    'subject_metadata' => json_encode($metadata)
+                ];
+                break;
+            case SamlIdpConstants::ATLASSIAN:
+                return [
+                    'entity_id' => "https://auth.atlassian.com/saml/{$request->get('org_id')}",
+                    'acs_url' => "https://auth.atlassian.com/login/callback?connection=saml-{$request->get('org_id')}",
+                    'relay_state' => "https://start.atlassian.com",
+                ];
+                break;
+            case SamlIdpConstants::CLOUDFLARE:
+                return [
+                    'entity_id' => "https://{$request->get('domain')}.cloudflareaccess.com/cdn-cgi/access/callback",
+                    'acs_url' => "https://{$request->get('domain')}.cloudflareaccess.com/cdn-cgi/access/callback"
+                ];
+                break;
+            case SamlIdpConstants::SLACK:
+                return [
+                    'entity_id' => "https://slack.com",
+                    'acs_url' => "https://{$request->get('domain')}.slack.com/sso/saml",
+                    'name_qualifier' => "{$request->get('domain')}.slack.com",
+                    'spname_qualifier' => "https://slack.com"
+                ];
+                break;
+            case SamlIdpConstants::FASTLY:
+                return [
+                    'entity_id' => "https://api.fastly.com/saml/{$request->get('token')}",
+                    'acs_url' => "https://manage.fastly.com/saml/consume"
+                ];
+                break;
+            case SamlIdpConstants::HUBSPOT:
+                break;
+            case SamlIdpConstants::GITHUB:
+                return [
+                    'entity_id' => "https://github.com/orgs/{$request->get('domain')}",
+                    'acs_url' => "https://github.com/orgs/{$request->get('domain')}/saml/consume"
+                ];
+                break;
+            case SamlIdpConstants::SALESFORCE:
+                return [
+                    'entity_id' => "https://{$request->get('domain')}.my.salesforce.com",
+                    'acs_url' => "https://{$request->get('domain')}.my.salesforce.com"
+                ];
+                break;
+            case SamlIdpConstants::DROPBOX:
+                return [];
+                break;
+        }
+
+        return null;
     }
 }

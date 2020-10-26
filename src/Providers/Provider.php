@@ -6,7 +6,6 @@ namespace ZiaKhan\SamlIdp\Providers;
 
 use ZiaKhan\SamlIdp\Contracts\ServiceProvider;
 use ZiaKhan\SamlIdp\Container;
-use ZiaKhan\SamlIdp\SamlIdpConstants;
 use Carbon\Carbon;
 use RobRichards\XMLSecLibs\XMLSecurityKey;
 use SAML2\Assertion;
@@ -20,6 +19,12 @@ use SAML2\XML\saml\Issuer;
 use SAML2\XML\saml\NameID;
 use SAML2\XML\saml\SubjectConfirmation;
 use SAML2\XML\saml\SubjectConfirmationData;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use SAML2\AuthnRequest;
+use SAML2\Constants;
+use ZiaKhan\SamlIdp\Models\UserSamlClient;
+use ZiaKhan\SamlIdp\SamlIdpConstants;
 
 /**
  * This class represents a general instance for any saml Service Provider.
@@ -121,12 +126,29 @@ class Provider extends ServiceProvider
     protected ?Binding $responseBinding = null;
 
     /**
+     * The SAML SSO instance set by the user
+     * 
+     * @var UserSamlClient|null
+     */
+    protected ?UserSamlClient $samlClient = null;
+
+    /**
+     * Instance of the authentication request.
+     * 
+     * @var AuthnRequest|null
+     */
+    protected ?AuthnRequest $authnRequest = null;
+
+    /**
      * Bootstrap the saml IDP service and make it ready for generating a saml message.
      * 
-     * @param
+     * @param UserSamlClient|AuthnRequest $responseDriver What should influence the SAMLResponse for a service provider?
+     * This value can be either a pre-defined SAML Service Provider instance or an Authentication request in an SP-initiated
+     * flow.
+     * 
      * @return void
      */
-    public function __construct()
+    public function __construct($responseDriver = null)
     {
         // Set time instance
         $time = Carbon::now();
@@ -172,15 +194,144 @@ class Provider extends ServiceProvider
         // Initialize SubjectConfirmationData
         $this->subjectConfirmationData = new SubjectConfirmationData();
 
+        /**
+         * How should the SAMLResponse message be generated?
+         * The driver as we call it, could be either a pre-defined instance for a
+         * service provider or an on the fly SAMLRequest message of the AuthnRequest
+         * type.
+         */
+        if ($responseDriver instanceof UserSamlClient) {
+            $this->samlClient = $responseDriver;
+        }
+
+        if ($responseDriver instanceof AuthnRequest) {
+            $this->authnRequest = $responseDriver;
+
+            // Set the InResponseTo attribute on the SAMLResponse message
+            $this->response->setInResponseTo($responseDriver->getId());
+
+            // Set other values that will be used in the SAMLResponse message.
+            $this->setName($responseDriver->getProviderName());
+            $this->setEntityId($responseDriver->getIssuer()->getValue());
+            $this->setAssertionConsumerServiceURL($responseDriver->getAssertionConsumerServiceURL());
+            $this->setDestination($responseDriver->getAssertionConsumerServiceURL());
+            $this->setCertificate($responseDriver->getCertificates()[0] ?? null);
+            $this->setNameIDFormat($responseDriver->getNameIdPolicy()['Format']);
+            $this->setResponseBidingType($responseDriver->getProtocolBinding());
+            $this->setRelayState($responseDriver->getRelayState());
+        }
+
         // Initialize an instance of appropriate response binding
         switch ($this->getResponseBidingType()) {
-            case 'post':
+            case Constants::BINDING_HTTP_POST:
                 $this->responseBinding = new HTTPPost();
                 break;
-            case 'redirect':
+            case Constants::BINDING_HTTP_REDIRECT:
                 $this->responseBinding = new HTTPRedirect();
                 break;
         }
+    }
+
+    /**
+     * Process the user defined SAML SSO instance.
+     * 
+     * @return self
+     */
+    public function processSamlClient(): self
+    {
+        if ($this->samlClient) {
+            // Set instance of the service provider model
+            $this->setServiceProvider($this->samlClient->serviceProvider);
+
+            // Set relay state if the service provider has one for this UserSamlClient instance
+            $this->setRelayState($this->samlClient->relay_state);
+
+            // Check if NameQualifier and SPNameQualifier attributes are defined for this instance, if so, set them.
+            $this->setNameQualifier($this->samlClient->name_qualifier);
+            $this->setSPNameQualifier($this->samlClient->spname_qualifier);
+
+            /**
+             * If the service provider has different rather than common entity ID and ACS URL for its users,
+             * then set the entity ID and ACS url as these values are NULL on the model for such service providers.
+             */
+            if ($this->serviceProvider->entity_id === null) $this->setEntityId($this->samlClient->entity_id);
+
+            if ($this->serviceProvider->acs_url === null) {
+                $this->setAssertionConsumerServiceURL($this->samlClient->acs_url);
+                $this->setDestination($this->samlClient->acs_url);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * Set the requested subject metadata/attributes for the service provider
+     * 
+     * @return self
+     */
+    public function setSubjectMetadata(): self
+    {
+        if ($this->samlClient) {
+            /**
+             * Subject metadata is of 2 types:
+             * 1. Service providers may require value for an attribute from this IDP.
+             * 2. Service provider may provide a pre defined set of values to the user that wishes to SSO through this IDP
+             * and those values may or may not be present in the SAMLResponse that this IDP returns.
+             * 
+             * first process `subject_metadata` if defined on the service provider's model, next,
+             * `subject_metadata` that may or may not be defined on the user's service provider instance.
+             * 
+             * Extract subject metadata first
+             */
+
+            $SPRequiredAttributes = $this->samlClient->serviceProvider->subject_metadata;
+            $SPProvidedAttributes = $this->samlClient->subject_metadata;
+
+            // If not NULL, json_decode, otherwise set to an empty array.
+            $SPRequiredAttributes = $SPRequiredAttributes ? json_decode($SPRequiredAttributes, true) : [];
+            $SPProvidedAttributes = $SPProvidedAttributes ? json_decode($SPProvidedAttributes, true) : [];
+
+            // Merge both arrays
+            $metadata = array_merge($SPRequiredAttributes, $SPProvidedAttributes);
+
+            // If metadata is not an empty array so far then process it.
+            if (!empty($metadata)) {
+                $set = [];
+
+                // Loop through and assign required values
+                foreach ($metadata as $attributeName => $requiredValue) {
+                    switch ($requiredValue) {
+                        case SamlIdpConstants::USER_ID:
+                            $set[$attributeName] = [Auth::user()->id];
+                            break;
+                        case SamlIdpConstants::USERNAME:
+                            $set[$attributeName] = [Auth::user()->username];
+                            break;
+                        case SamlIdpConstants::EMAIL:
+                            $set[$attributeName] = [Auth::user()->email];
+                            break;
+                        case SamlIdpConstants::FULL_NAME:
+                            $set[$attributeName] = [Auth::user()->info->first_name . ' ' . Auth::user()->info->last_name];
+                            break;
+                        case SamlIdpConstants::FIRST_NAME:
+                            $set[$attributeName] = [Auth::user()->info->first_name];
+                            break;
+                        case SamlIdpConstants::LAST_NAME:
+                            $set[$attributeName] = [Auth::user()->info->last_name];
+                            break;
+                        default:
+                            $set[$attributeName] = is_array($requiredValue) ? $requiredValue : [$requiredValue];
+                            break;
+                    }
+                }
+
+                // Set attributes on the assertion
+                $this->assertion->setAttributes($set);
+            }
+        }
+
+        return $this;
     }
 
     /**
@@ -194,7 +345,22 @@ class Provider extends ServiceProvider
         $this->response->setDestination($this->getDestination());
 
         // Set NameID Element
+        switch ($this->getNameIDFormat()) {
+            case Constants::NAMEID_EMAIL_ADDRESS:
+                $this->setNameIDValue(Auth::user()->email);
+                break;
+            case Constants::NAMEID_UNSPECIFIED:
+                $this->setNameIDValue((string) Auth::user()->id);
+                break;
+
+                // And for all other cases that are not supported yet
+            default:
+                $this->setNameIDValue((string) Auth::user()->id);
+                break;
+        }
         $this->nameIdElement->setFormat($this->getNameIDFormat());
+        $this->nameIdElement->setNameQualifier($this->getNameQualifier());
+        $this->nameIdElement->setSPNameQualifier($this->getSPNameQualifier());
         $this->nameIdElement->setValue($this->getNameIDValue());
 
         // Make assertions
@@ -203,25 +369,21 @@ class Provider extends ServiceProvider
         $this->assertion->setAuthnInstant($this->timeStamp);
         $this->assertion->setNotBefore($this->notBefore);
         $this->assertion->setNotOnOrAfter($this->notOnOrAfter);
-        $this->assertion->setAuthnContextClassRef(SamlIdpConstants::NAMEID_UNSPECIFIED);
+        $this->assertion->setAuthnContextClassRef(Constants::NAMEID_UNSPECIFIED);
         $this->assertion->setNameId($this->nameIdElement);
-        $this->assertion->setSubjectConfirmation([$this->subjectConfirmation]);
+        $this->assertion->setValidAudiences([$this->getEntityId()]);
+
+        // Check if the service provider wants a Recipient defined or not. i.e. SubjectConfirmation
+        if ($this->samlClient) {
+            if ($this->serviceProvider->want_recipient_defined) $this->setSubjectConfirmation();
+        }
+        if ($this->subjectConfirmation->getMethod()) $this->assertion->setSubjectConfirmation([$this->subjectConfirmation]);
 
         // Set assertions on the response
         $this->response->setAssertions([$this->assertion]);
 
-        return $this;
-    }
-
-    /**
-     * Set the requested subject metadata/attributes for the service provider
-     * 
-     * @param array $subjectMetadata
-     * @return self
-     */
-    public function setSubjectMetadata(array $subjectMetadata): self
-    {
-        $this->assertion->setAttributes($subjectMetadata);
+        // Set Relay state on the response if any
+        $this->response->setRelayState($this->getRelayState());
 
         return $this;
     }
@@ -252,5 +414,19 @@ class Provider extends ServiceProvider
     public function getContainer(): Container
     {
         return Utils::getContainer();
+    }
+
+    /**
+     * Set SubjectConfirmation element on the SAMLResponse message
+     * 
+     * @return void
+     */
+    private function setSubjectConfirmation()
+    {
+        // Prepare SubjectConfirmation element
+        $this->subjectConfirmation->setMethod(Constants::CM_BEARER);
+        $this->subjectConfirmationData->setNotOnOrAfter($this->notOnOrAfter);
+        $this->subjectConfirmationData->setRecipient($this->getAssertionConsumerServiceURL());
+        $this->subjectConfirmation->setSubjectConfirmationData($this->subjectConfirmationData);
     }
 }

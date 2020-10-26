@@ -6,6 +6,7 @@ namespace ZiaKhan\SamlIdp\Contracts;
 
 use SAML2\Constants;
 use ZiaKhan\SamlIdp\Exceptions\InvalidParameter;
+use ZiaKhan\SamlIdp\Models\ServiceProvider as ServiceProviderModel;
 
 /**
  * This class represents any SAML service provider application.
@@ -13,6 +14,11 @@ use ZiaKhan\SamlIdp\Exceptions\InvalidParameter;
  */
 abstract class ServiceProvider
 {
+    /**
+     * @var ServiceProviderModel|null
+     */
+    protected ?ServiceProviderModel $serviceProvider = null;
+
     /**
      * The Fully Qualified Domain Name (FQDN) or any publicly identifiable name of the service provider.
      * 
@@ -70,6 +76,20 @@ abstract class ServiceProvider
     protected string $nameIdFormat = Constants::NAMEID_UNSPECIFIED;
 
     /**
+     * The NameQualifier value.
+     * 
+     * @var string|null
+     */
+    protected ?string $nameQualifier = null;
+
+    /**
+     * The SPNameQualifier value.
+     * 
+     * @var string|null
+     */
+    protected ?string $SPNameQualifier = null;
+
+    /**
      * The NameID value.
      * 
      * @var string|null
@@ -82,22 +102,43 @@ abstract class ServiceProvider
      * 
      * @var string
      */
-    protected ?string $responseBidingType = 'post';
+    protected ?string $responseBidingType = Constants::BINDING_HTTP_POST;
 
     /**
-     * An associative array of metadata specifying a service provider subject.
+     * Set a service provider model instance on the object of this class
      * 
-     * @var array|null
+     * @param ServiceProviderModel $serviceProvider
+     * @return void
      */
-    protected ?array $subjectMetaData = null;
+    public function setServiceProvider(ServiceProviderModel $serviceProvider): void
+    {
+        $this->serviceProvider = $serviceProvider;
+        $this->setName($serviceProvider->name);
+        $this->setEntityId($serviceProvider->entity_id);
+        $this->setAssertionConsumerServiceURL($serviceProvider->acs_url);
+        $this->setDestination($serviceProvider->acs_url);
+        $this->setCertificate($serviceProvider->x509);
+        $this->setNameIDFormat($serviceProvider->nameid_format);
+        $this->setResponseBidingType($serviceProvider->binding);
+    }
+
+    /**
+     * Get instance of the service provider modal
+     * 
+     * @return ServiceProviderModel|null
+     */
+    public function getServiceProvider(): ?ServiceProviderModel
+    {
+        return $this->serviceProvider;
+    }
 
     /**
      * Set FQDN or any publicly identifiable name for the service provider
      * 
-     * @param string $name Public name of the service provider
+     * @param string|null $name Public name of the service provider
      * @return void
      */
-    public function setName(string $name): void
+    public function setName(?string $name): void
     {
         $this->name = $name;
     }
@@ -115,10 +156,10 @@ abstract class ServiceProvider
     /**
      * Set EntityID of the service provider application
      * 
-     * @param string $eid
+     * @param string|null $eid
      * @return void
      */
-    public function setEntityId(string $eid): void
+    public function setEntityId(?string $eid): void
     {
         $this->entityId = $eid;
     }
@@ -136,10 +177,10 @@ abstract class ServiceProvider
     /**
      * Set the Assertion Consumer Service (ACS) URL for the SAMLResponse
      * 
-     * @param string $acs
+     * @param string|null $acs
      * @return void
      */
-    public function setAssertionConsumerServiceURL(string $acs): void
+    public function setAssertionConsumerServiceURL(?string $acs): void
     {
         $this->acsUrl = $acs;
     }
@@ -157,10 +198,10 @@ abstract class ServiceProvider
     /**
      * Set the destination URL for the SAMLResponse
      * 
-     * @param string $destination
+     * @param string|null $destination
      * @return void
      */
-    public function setDestination(string $destination): void
+    public function setDestination(?string $destination): void
     {
         $this->destination = $destination;
     }
@@ -178,10 +219,10 @@ abstract class ServiceProvider
     /**
      * Set the relay state for the SAMLResponse
      * 
-     * @param string $relayState
+     * @param string|null $relayState
      * @return void
      */
-    public function setRelayState(string $relayState): void
+    public function setRelayState(?string $relayState): void
     {
         $this->relayState = $relayState;
     }
@@ -222,10 +263,10 @@ abstract class ServiceProvider
     /**
      * Set the X.509 certificate of the service provider. It must be PEM encoded.
      * 
-     * @param string $x509
+     * @param string|null $x509
      * @return void
      */
-    public function setCertificate(string $x509): void
+    public function setCertificate(?string $x509): void
     {
         $this->certificate = $x509;
     }
@@ -250,7 +291,7 @@ abstract class ServiceProvider
      * @param string $nameIdFormat
      * @return void
      */
-    public function setNameIDFormat(string $nameIdFormat): void
+    public function setNameIDFormat(string $nameIdFormat = 'urn:oasis:names:tc:SAML:2.0:nameid-format:unspecified'): void
     {
         $this->nameIdFormat = $nameIdFormat;
     }
@@ -266,12 +307,54 @@ abstract class ServiceProvider
     }
 
     /**
-     * Set NameID Value for the SAMLResponse.
+     * Set the NameQualifier attribute on the NameID element for the SAMLResponse.
      * 
-     * @param string $nameIdValue
+     * @param string|null $nameQualifier
      * @return void
      */
-    public function setNameIDValue(string $nameIdValue): void
+    public function setNameQualifier(?string $nameQualifier): void
+    {
+        $this->nameQualifier = $nameQualifier;
+    }
+
+    /**
+     * Get value of the NameQualifier attribute on the NameID element.
+     * 
+     * @return string|null
+     */
+    public function getNameQualifier()
+    {
+        return $this->nameQualifier;
+    }
+
+    /**
+     * Set the SPNameQualifier attribute on the NameID element for the SAMLResponse.
+     * 
+     * @param string|null $SPNameQualifier
+     * @return void
+     */
+    public function setSPNameQualifier(?string $SPNameQualifier): void
+    {
+        $this->SPNameQualifier = $SPNameQualifier;
+    }
+
+    /**
+     * Get value of the SPNameQualifier attribute on the NameID element.
+     * 
+     * @return string|null
+     */
+    public function getSPNameQualifier()
+    {
+        return $this->SPNameQualifier;
+    }
+
+    /**
+     * Set NameID Value for the SAMLResponse.
+     * 
+     * @param string|null $nameIdValue
+     * @return void
+     */
+    public function setNameIDValue(?string $nameIdValue): void
     {
         $this->nameIdValue = $nameIdValue;
     }
@@ -289,18 +372,19 @@ abstract class ServiceProvider
     /**
      * Set the SAML response binding type. Either HTTP-Post or HTTP-Redirect
      * bindings are supported at the moment.
+     * defaults to 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST'
      * 
-     * @param string $responseBidingType Must be one of ['post', 'redirect']
+     * @param string $responseBidingType Must be one of 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST', 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'
      * @return void
      * 
      * @throws InvalidParameter
      */
-    public function setResponseBidingType(string $responseBidingType): void
+    public function setResponseBidingType(string $responseBidingType = 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST'): void
     {
         // The list of currently supported bindings
         $supported = [
-            'post',
-            'redirect'
+            Constants::BINDING_HTTP_POST,
+            Constants::BINDING_HTTP_REDIRECT
         ];
 
         if (!in_array($responseBidingType, $supported)) {
@@ -318,34 +402,5 @@ abstract class ServiceProvider
     public function getResponseBidingType(): string
     {
         return $this->responseBidingType;
-    }
-
-    /**
-     * Set an associative array of key value pairs that describes a subject/user for the
-     * target service provider. Some service providers require this information to identify
-     * the user, adjust their privileges and control sign in sessions.
-     * 
-     * Array Format
-     * [
-     *  string 'metadata/attribute name' => array ['attribute value 1', 'attribute value 2', '...'],
-     * ]
-     * 
-     * @param array $subjectMetaData
-     * @return self
-     */
-    public function setSubjectMetaData(array $subjectMetaData): self
-    {
-        $this->subjectMetaData = $subjectMetaData;
-        return $this;
-    }
-
-    /**
-     * Get metadata that describes the subject for the service provider
-     * 
-     * @return array|null
-     */
-    public function getSubjectMetaData(): ?array
-    {
-        return $this->subjectMetaData;
     }
 }

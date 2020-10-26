@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-use ZiaKhan\SamlIdp\Modals\SsoPost;
+use ZiaKhan\SamlIdp\Models\SsoPost;
 
 class SsoController extends Controller
 {
