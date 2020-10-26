@@ -20,13 +20,13 @@ return [
      * The entity ID for this IDP.
      * This ID uniquely identifies this IDP with service providers.
      */
-    'entity_id' => 'urn:Meveto:Single-Sign-On',
+    'entity_id' => 'https://meveto.com',
 
     /**
      * The URL of this IDP at which the metadata xml file exist.
      * Service Providers can make use of this URL to learn configuration requirements for this IDP.
      */
-    'issuer_uri' => 'https://prod.meveto.com/saml/metadata',
+    'issuer_uri' => 'https://meveto.com',
 
     /**
      * The single sign on URL of this IDP.

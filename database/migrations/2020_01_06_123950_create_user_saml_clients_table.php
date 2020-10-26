@@ -21,6 +21,9 @@ class CreateUserSamlClientsTable extends Migration
             $table->unsignedBigInteger('user_id');
             $table->unsignedBigInteger('service_provider_id');
             $table->longText('subject_metadata')->nullable()->default(null);
+            $table->string('entity_id')->nullable()->default(null);
+            $table->string('acs_url')->nullable()->default(null);
+            $table->string('relay_state')->nullable()->default(null);
             $table->timestamp('last_logged_in')->nullable()->default(null);
             $table->boolean('revoked')->default(0);
             $table->timestamps();

@@ -15,12 +15,14 @@ class CreateServiceProvidersTable extends Migration
     {
         Schema::create('service_providers', function (Blueprint $table) {
             $table->id();
-            $table->string('namespace')->nullable()->default(null);
             $table->string('name');
-            $table->string('entity_id');
-            $table->string('acs_url');
+            $table->string('entity_id')->nullable()->default(null);
+            $table->string('acs_url')->nullable()->default(null);
             $table->boolean('want_assertions_signed')->default(1);
+            $table->boolean('want_response_signed')->default(1);
             $table->boolean('want_response_encrypted')->default(0);
+            $table->boolean('want_recipient_defined')->default(0);
+            $table->longText('subject_metadata')->nullable()->default(null);
             $table->text('x509')->nullable()->default(null);
             $table->enum('nameid_format', [
                 'urn:oasis:names:tc:SAML:2.0:nameid-format:transient',
@@ -31,8 +33,11 @@ class CreateServiceProvidersTable extends Migration
                 'urn:oasis:names:tc:SAML:1.1:nameid-format:WindowsDomainQualifiedName',
                 'urn:oasis:names:tc:SAML:2.0:nameid-format:kerberos',
                 'urn:oasis:names:tc:SAML:2.0:nameid-format:entity',
-            ])->default('urn:oasis:names:tc:SAML:2.0:nameid-format:persistent');
-            $table->enum('binding', ['post', 'redirect'])->default('post');
+            ])->default('urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified');
+            $table->enum('binding', [
+                'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST',
+                'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'
+            ])->default('urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST');
             $table->timestamps();
         });
     }
