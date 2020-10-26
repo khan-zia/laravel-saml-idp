@@ -10,12 +10,12 @@
     "sso",
     "idp"
   ],
-  "license": "Proprietary",
+  "license": "proprietary",
   "require": {
     "php": "^7.3",
     "illuminate/support": "^7.0",
     "illuminate/routing": "^7.0",
-    "Illuminate/Database": "^7.0",
+    "illuminate/database": "^7.0",
     "simplesamlphp/saml2": "4.0"
   },
   "autoload": {
