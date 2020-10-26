@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use SAML2\AuthnRequest;
 use SAML2\Constants;
+use ZiaKhan\SamlIdp\Models\ServiceProvider as ModelsServiceProvider;
 use ZiaKhan\SamlIdp\Models\UserSamlClient;
 use ZiaKhan\SamlIdp\SamlIdpConstants;
 
@@ -220,6 +221,10 @@ class Provider extends ServiceProvider
             $this->setResponseBidingType($responseDriver->getProtocolBinding());
             $this->setRelayState($responseDriver->getRelayState());
             $this->setSubjectConfirmation();
+
+            // If the Issuer is a known Service Provider, then process any required attributes
+            $sp = ModelsServiceProvider::where('entity_id', '=', $responseDriver->getIssuer()->getValue())->first();
+            if ($sp) $this->setSubjectMetadata($sp);
         }
 
         // Initialize an instance of appropriate response binding
@@ -269,10 +274,20 @@ class Provider extends ServiceProvider
     /**
      * Set the requested subject metadata/attributes for the service provider
      * 
+     * @param ModelsServiceProvider|null $serviceProvider
      * @return self
      */
-    public function setSubjectMetadata(): self
+    public function setSubjectMetadata(?ModelsServiceProvider $serviceProvider = null): self
     {
+        $metadata = [];
+        $SPRequiredAttributes = null;
+        $SPProvidedAttributes = null;
+
+        if ($serviceProvider) {
+            $SPRequiredAttributes = $serviceProvider->subject_metadata;
+        }
+
+        // If a ServiceProvider instance is not passed, then $this->samlClient must be defined.
         if ($this->samlClient) {
             /**
              * Subject metadata is of 2 types:
@@ -288,50 +303,49 @@ class Provider extends ServiceProvider
 
             $SPRequiredAttributes = $this->samlClient->serviceProvider->subject_metadata;
             $SPProvidedAttributes = $this->samlClient->subject_metadata;
-
-            // If not NULL, json_decode, otherwise set to an empty array.
-            $SPRequiredAttributes = $SPRequiredAttributes ? json_decode($SPRequiredAttributes, true) : [];
-            $SPProvidedAttributes = $SPProvidedAttributes ? json_decode($SPProvidedAttributes, true) : [];
-
-            // Merge both arrays
-            $metadata = array_merge($SPRequiredAttributes, $SPProvidedAttributes);
-
-            // If metadata is not an empty array so far then process it.
-            if (!empty($metadata)) {
-                $set = [];
-
-                // Loop through and assign required values
-                foreach ($metadata as $attributeName => $requiredValue) {
-                    switch ($requiredValue) {
-                        case SamlIdpConstants::USER_ID:
-                            $set[$attributeName] = [Auth::user()->id];
-                            break;
-                        case SamlIdpConstants::USERNAME:
-                            $set[$attributeName] = [Auth::user()->username];
-                            break;
-                        case SamlIdpConstants::EMAIL:
-                            $set[$attributeName] = [Auth::user()->email];
-                            break;
-                        case SamlIdpConstants::FULL_NAME:
-                            $set[$attributeName] = [Auth::user()->info->first_name . ' ' . Auth::user()->info->last_name];
-                            break;
-                        case SamlIdpConstants::FIRST_NAME:
-                            $set[$attributeName] = [Auth::user()->info->first_name];
-                            break;
-                        case SamlIdpConstants::LAST_NAME:
-                            $set[$attributeName] = [Auth::user()->info->last_name];
-                            break;
-                        default:
-                            $set[$attributeName] = is_array($requiredValue) ? $requiredValue : [$requiredValue];
-                            break;
-                    }
-                }
-
-                // Set attributes on the assertion
-                $this->assertion->setAttributes($set);
-            }
         }
 
+        // If not NULL, json_decode, otherwise set to an empty array.
+        $SPRequiredAttributes = $SPRequiredAttributes ? json_decode($SPRequiredAttributes, true) : [];
+        $SPProvidedAttributes = $SPProvidedAttributes ? json_decode($SPProvidedAttributes, true) : [];
+
+        // Merge both arrays
+        $metadata = array_merge($SPRequiredAttributes, $SPProvidedAttributes);
+
+        // If metadata is not an empty array so far then process it.
+        if (!empty($metadata)) {
+            $set = [];
+
+            // Loop through and assign required values
+            foreach ($metadata as $attributeName => $requiredValue) {
+                switch ($requiredValue) {
+                    case SamlIdpConstants::USER_ID:
+                        $set[$attributeName] = [Auth::user()->id];
+                        break;
+                    case SamlIdpConstants::USERNAME:
+                        $set[$attributeName] = [Auth::user()->username];
+                        break;
+                    case SamlIdpConstants::EMAIL:
+                        $set[$attributeName] = [Auth::user()->email];
+                        break;
+                    case SamlIdpConstants::FULL_NAME:
+                        $set[$attributeName] = [Auth::user()->info->first_name . ' ' . Auth::user()->info->last_name];
+                        break;
+                    case SamlIdpConstants::FIRST_NAME:
+                        $set[$attributeName] = [Auth::user()->info->first_name];
+                        break;
+                    case SamlIdpConstants::LAST_NAME:
+                        $set[$attributeName] = [Auth::user()->info->last_name];
+                        break;
+                    default:
+                        $set[$attributeName] = is_array($requiredValue) ? $requiredValue : [$requiredValue];
+                        break;
+                }
+            }
+
+            // Set attributes on the assertion
+            $this->assertion->setAttributes($set);
+        }
         return $this;
     }
 
