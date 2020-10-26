@@ -219,6 +219,7 @@ class Provider extends ServiceProvider
             $this->setNameIDFormat($responseDriver->getNameIdPolicy()['Format']);
             $this->setResponseBidingType($responseDriver->getProtocolBinding());
             $this->setRelayState($responseDriver->getRelayState());
+            $this->setSubjectConfirmation();
         }
 
         // Initialize an instance of appropriate response binding
