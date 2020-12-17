@@ -220,7 +220,7 @@ class Provider extends ServiceProvider
             $this->setNameIDFormat($responseDriver->getNameIdPolicy()['Format']);
             $this->setResponseBidingType($responseDriver->getProtocolBinding() ?? Constants::BINDING_HTTP_POST);
             $this->setRelayState($responseDriver->getRelayState());
-            $this->setSubjectConfirmation();
+            $this->setSubjectConfirmation($responseDriver->getId());
 
             // If the Issuer is a known Service Provider, then process any required attributes
             $sp = ModelsServiceProvider::where('entity_id', '=', $responseDriver->getIssuer()->getValue())->first();
@@ -434,14 +434,16 @@ class Provider extends ServiceProvider
     /**
      * Set SubjectConfirmation element on the SAMLResponse message
      * 
+     * @param string|null $inResponseToId The ID of the AuthnRequest if present
      * @return void
      */
-    private function setSubjectConfirmation()
+    private function setSubjectConfirmation(?string $inResponseToId = null)
     {
         // Prepare SubjectConfirmation element
         $this->subjectConfirmation->setMethod(Constants::CM_BEARER);
         $this->subjectConfirmationData->setNotOnOrAfter($this->notOnOrAfter);
         $this->subjectConfirmationData->setRecipient($this->getAssertionConsumerServiceURL());
+        $this->subjectConfirmationData->setInResponseTo($inResponseToId);
         $this->subjectConfirmation->setSubjectConfirmationData($this->subjectConfirmationData);
     }
 }
