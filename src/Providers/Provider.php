@@ -161,7 +161,7 @@ class Provider extends ServiceProvider
         ContainerSingleton::setContainer(new Container);
 
         // Initialize this IDP's private kye
-        $this->privateKey = new XMLSecurityKey(XMLSecurityKey::RSA_SHA512, ['type' => 'private']);
+        $this->privateKey = new XMLSecurityKey(XMLSecurityKey::RSA_SHA256, ['type' => 'private']);
         $this->privateKey->loadKey(config('samlidp.private_key'));
 
         // Initialize an Issuer
