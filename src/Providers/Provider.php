@@ -218,7 +218,7 @@ class Provider extends ServiceProvider
             $this->setDestination($responseDriver->getAssertionConsumerServiceURL());
             $this->setCertificate($responseDriver->getCertificates()[0] ?? null);
             $this->setNameIDFormat($responseDriver->getNameIdPolicy()['Format']);
-            $this->setResponseBidingType($responseDriver->getProtocolBinding());
+            $this->setResponseBidingType($responseDriver->getProtocolBinding() ?? Constants::BINDING_HTTP_POST);
             $this->setRelayState($responseDriver->getRelayState());
             $this->setSubjectConfirmation();
 
