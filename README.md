@@ -1,5 +1,5 @@
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/ziakhan/laravel-saml-idp.svg?style=flat-square)](https://packagist.org/packages/ziakhan/laravel-saml-idp)
-[![Total Downloads](https://img.shields.io/packagist/dt/ziakhan/laravel-saml-idp.svg?style=flat-square)](https://packagist.org/packages/ziakhan/laravel-saml-idp)
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/khan-zia/laravel-saml-idp.svg?style=flat-square)](https://packagist.org/packages/khan-zia/laravel-saml-idp)
+[![Total Downloads](https://img.shields.io/packagist/dt/khan-zia/laravel-saml-idp.svg?style=flat-square)](https://packagist.org/packages/khan-zia/laravel-saml-idp)
 
 # Laravel SAML IDP
 
@@ -8,7 +8,7 @@ This library only supports Laravel 7.x onwards.
 ## Installation
 
 ```shell
-composer require ziakhan/laravel-saml-idp
+composer require khan-zia/laravel-saml-idp
 ```
 
 # Configuration
